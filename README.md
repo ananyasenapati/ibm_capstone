@@ -38,9 +38,10 @@ A full-stack **multi-vendor bookstore marketplace** with three roles — **Custo
 
 | Layer | Technology |
 |---|---|
-| Backend | Java 17, Spring Boot 3.2 (Web, Data JPA, Security, Validation) |
+| Backend | Java 17, Spring Boot 3.2 (Web, Data JPA, Security, Validation) + AWS SDK v2 (S3) |
 | Security | Spring Security + JWT (access + refresh tokens), BCrypt password hashing |
-| Database | PostgreSQL + Liquibase versioned migrations (auto-provisioned schema) |
+| Database | PostgreSQL (local or Neon cloud) + Liquibase versioned migrations (auto-provisioned schema) |
+| Photo Storage | S3-compatible object storage (Neon Storage / AWS S3 / R2 / MinIO) or local disk, hot-swappable |
 | API Docs | springdoc-openapi (Swagger UI) |
 | Frontend | React 18, TypeScript, Vite 5, Tailwind CSS |
 | State/Data | Zustand (auth store), React Query, Axios interceptors (auto token refresh) |
@@ -98,7 +99,11 @@ A full-stack **multi-vendor bookstore marketplace** with three roles — **Custo
 ### 1. Database
 Create an empty database — Liquibase creates all tables automatically on first run:
 ```sql
-CREATE DATABASE ebookstore;
+CREATE DATABASE ebookstore;   -- local PostgreSQL
+```
+Or use a **managed Neon database** (`postgresql://...`), connecting over SSL:
+```properties
+spring.datasource.url=jdbc:postgresql://<host>.neon.tech/<db>?sslmode=require
 ```
 
 ### 2. Configure secrets (never committed)
@@ -107,7 +112,7 @@ cd backend/src/main/resources
 copy application-local.properties.example application-local.properties   # Windows
 # cp application-local.properties.example application-local.properties   # macOS/Linux
 ```
-Edit `application-local.properties` and set your DB password and a private JWT secret. Every value can also be provided via environment variables (`DB_PASSWORD`, `JWT_SECRET`, …) — see the configuration table below.
+Edit `application-local.properties` and set your DB credentials (local or Neon), a private JWT secret, and optionally the object-storage settings. Every value can also be provided via environment variables (`DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `S3_ENABLED`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, …) — see the configuration table below.
 
 ### 3. Run the backend
 ```bash
@@ -135,12 +140,17 @@ All values support environment-variable overrides — no secrets are stored in t
 
 | Variable | Purpose | Default (dev) |
 |---|---|---|
-| `DB_URL` | PostgreSQL JDBC URL | `jdbc:postgresql://localhost:5432/ebookstore` |
+| `DB_URL` | PostgreSQL JDBC URL (local or Neon `?sslmode=require`) | `jdbc:postgresql://localhost:5432/ebookstore` |
 | `DB_USERNAME` / `DB_PASSWORD` | Database credentials | `postgres` / `postgres` |
 | `JWT_SECRET` | Base64 key, ≥ 32 bytes (HS256) | dev-only placeholder — **override in production** |
 | `JWT_EXPIRATION` | Access-token lifetime (ms) | `86400000` (24 h) |
 | `JWT_REFRESH_EXPIRATION` | Refresh-token lifetime (ms) | `604800000` (7 days) |
-| `FILE_UPLOAD_DIR` | Image upload directory | `uploads/` |
+| `S3_ENABLED` | `true` → object storage, `false` → local disk (`uploads/`) | `false` |
+| `AWS_ENDPOINT_URL_S3` | S3 endpoint (e.g. Neon Storage, AWS, R2, MinIO) | — |
+| `AWS_REGION` | S3 region | `us-east-2` |
+| `S3_BUCKET` | Bucket name (auto-discovered if blank) | — |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Object-storage credentials | — |
+| `FILE_UPLOAD_DIR` | Local-disk upload directory (local mode) | `uploads/` |
 | `SERVER_PORT` | Backend port | `8080` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile | `local` |
 
@@ -170,6 +180,7 @@ Base URL: `/api` · Auth: `Authorization: Bearer <token>`
 - Stateless JWT auth with automatic refresh-token rotation on the client
 - BCrypt password hashing; role-based access control (`ADMIN`, `SELLER`, `CUSTOMER`)
 - CORS restricted to the frontend origin; CSRF disabled (stateless API)
+- Photos: with object storage enabled, images are stored in a private S3-compatible bucket and streamed through the API's `/uploads/**` endpoint (no public bucket exposure)
 - No secrets in version control — private values live in a gitignored local profile or environment variables
 
 ## 📄 License

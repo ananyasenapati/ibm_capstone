@@ -19,4 +19,5 @@
     <include file="db/changelog/012-seed-admin-user.xml"/>
     <include file="db/changelog/013-fix-admin-password.xml"/>
     <include file="db/changelog/014-add-profile-image.xml"/>
+    <include file="db/changelog/015-sync-sequences.xml"/>
 </databaseChangeLog>

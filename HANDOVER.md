@@ -30,8 +30,9 @@ A multi-vendor e-commerce bookstore. Three roles with isolated capabilities:
 | Spring Boot | 3.2.0 | parent POM |
 | springdoc-openapi | 2.3.0 | Swagger UI at `/swagger-ui.html` |
 | JJWT | 0.12.3 | token signing (HS256, Base64 secret) |
+| AWS SDK v2 (s3) | 2.25.x | S3-compatible photo storage (Neon Storage / AWS / R2 / MinIO) |
 | Liquibase | bundled | 15 changelogs in `src/main/resources/db/changelog/` |
-| PostgreSQL | 14+ recommended | schema auto-created by Liquibase |
+| PostgreSQL | 14+ recommended | local or Neon cloud; schema auto-created by Liquibase |
 | React / TypeScript / Vite | 18.3 / 5.3 / 5.0 | `frontend/package.json` |
 | Zustand | 5.x | client auth state |
 | React Query | 3.39 | server-state fetching |
@@ -179,9 +180,14 @@ Flow: validates address + stock → redeems gift points (1 pt = ₹1, balance-ch
 
 | # | Method & Path | Auth | Description |
 |---|---|---|---|
-| 21 | `POST /upload` | Authenticated | `multipart/form-data`, field `file` → returns public URL string `/uploads/<uuid>.<ext>` |
+| 21 | `POST /upload` | Authenticated | `multipart/form-data`, field `file` → returns URL string `/uploads/<uuid>.<ext>` |
 
-Files are stored in `file.upload-dir` (default `backend/uploads/`, gitignored) and served statically by `WebConfig`. Used for product and profile images.
+Photo storage is **hot-swappable** via the `StorageService` interface:
+
+- **Local mode** (`storage.s3.enabled=false`, default): files are written to `file.upload-dir` (`backend/uploads/`, gitignored) and served statically by `WebConfig` under `/uploads/**`.
+- **S3 mode** (`storage.s3.enabled=true`): files are uploaded to an S3-compatible bucket (Neon Storage, AWS S3, Cloudflare R2, MinIO) using the AWS SDK v2 client (`S3FileStorageService`). The bucket is auto-discovered via `listBuckets` when `storage.s3.bucket` is empty. Because buckets are typically **private**, `S3ResourceController` streams objects back through `/uploads/**`, keeping the URL format identical in both modes (`/uploads/<uuid>.<ext>`).
+
+Config: `storage.s3.endpoint`, `storage.s3.region`, `storage.s3.bucket`, `storage.s3.access-key`, `storage.s3.secret-key` (all env-overridable; see §9).
 
 ### 5.8 Seller — `/api/seller` (role `SELLER`; blocked until admin approval)
 
@@ -220,7 +226,7 @@ Files are stored in `file.upload-dir` (default `backend/uploads/`, gitignored) a
 
 ## 6. Database Schema (Liquibase auto-provisioned)
 
-11 tables created by migrations `001`–`011` in `src/main/resources/db/changelog/`; master file: `db.changelog-master.xml`. Hibernate `ddl-auto=none` — the schema is **entirely migration-managed**.
+11 tables created by migrations `001`–`011` in `src/main/resources/db/changelog/`; master file: `db.changelog-master.xml`. Hibernate `ddl-auto=none` — the schema is **entirely migration-managed**. Migration `015-sync-sequences` re-syncs PostgreSQL auto-increment sequences after the admin seed insert (fixes "duplicate key users_pkey" on fresh databases).
 
 | Table | Purpose / key columns |
 |---|---|
@@ -273,10 +279,13 @@ Files are stored in `file.upload-dir` (default `backend/uploads/`, gitignored) a
 
 | Env var | Overrides |
 |---|---|
-| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL connection |
+| `DB_URL`, `DB_USERNAME`, `DB_PASSWORD` | PostgreSQL connection (Neon: use `jdbc:postgresql://<host>?sslmode=require`) |
 | `JWT_SECRET` | token-signing key (Base64, ≥ 32 bytes) |
 | `JWT_EXPIRATION`, `JWT_REFRESH_EXPIRATION` | token lifetimes (ms) |
-| `FILE_UPLOAD_DIR`, `SERVER_PORT` | uploads path, HTTP port |
+| `S3_ENABLED` | `true` = object storage, `false` = local disk |
+| `AWS_ENDPOINT_URL_S3`, `AWS_REGION`, `S3_BUCKET` | object-storage endpoint / region / bucket (bucket auto-discovered if blank) |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | object-storage credentials |
+| `FILE_UPLOAD_DIR`, `SERVER_PORT` | uploads path (local mode), HTTP port |
 | `SPRING_PROFILES_ACTIVE` | profile (default `local`) |
 
 **Rotate the JWT secret** (recommended immediately after handover): generate a Base64 key (`[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('<any 32+ char string>'))` in PowerShell), set `JWT_SECRET` (or edit the local properties file), restart. Rotating invalidates all existing tokens (users simply log in again).
@@ -307,7 +316,7 @@ npm run dev        # development (port 5173)
 npm run build      # production bundle in dist/
 npm run preview    # serve the production build
 ```
-**Deployment checklist:** provision PostgreSQL → set `DB_*`, `JWT_SECRET` env vars → set `SPRING_PROFILES_ACTIVE` to something other than `local` → update CORS origins → front the API with HTTPS → persist/serve `uploads/` from durable storage (or an S3-style bucket) → point the built frontend's `/api` + `/uploads` at the API host (reverse proxy such as Nginx keeps the same paths).
+**Deployment checklist:** provision PostgreSQL (local or Neon cloud) → set `DB_*`, `JWT_SECRET` env vars → enable object storage with `S3_ENABLED=true` + `AWS_*` / `S3_BUCKET` vars (or keep local disk) → set `SPRING_PROFILES_ACTIVE` to something other than `local` → update CORS origins → front the API with HTTPS → point the built frontend's `/api` + `/uploads` at the API host (reverse proxy such as Nginx keeps the same paths; in S3 mode `/uploads` is served by the API itself).
 
 ---
 
@@ -316,7 +325,7 @@ npm run preview    # serve the production build
 1. **In-memory cart** — carts reset on backend restart and don't scale horizontally. *Next:* persist cart in a `cart_items` table or Redis.
 2. **Mock payment gateway** — payments always succeed. *Next:* integrate Razorpay/Stripe; flip order/payment statuses from the gateway webhook.
 3. **No refresh-token revocation** — tokens are stateless; logout is client-side only. *Next:* token blacklist or short-lived tokens with server-side sessions.
-4. **File uploads on local disk** — *Next:* object storage + CDN.
+4. **Photos streamed through the app in S3 mode** — private buckets mean `S3ResourceController` relays objects via `/uploads/**`. *Next:* switch to a public bucket/CDN or presigned URLs for direct browser access.
 5. **No automated tests beyond the default context test.** *Next:* unit tests for services (pricing, gift points, stock), API tests with Testcontainers.
 6. **Seller approval enforcement** — primarily UI-driven (`SellerApprovalBanner`); consider adding a `@PreAuthorize`-style service check for extra hardening.
 7. **Rate limiting / brute-force protection** on `/auth/login` — add Bucket4j or a gateway.

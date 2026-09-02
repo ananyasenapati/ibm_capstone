@@ -1,22 +1,24 @@
 package com.capstone.controller;
 
-import org.springframework.beans.factory.annotation.Value;
+import com.capstone.service.StorageService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.UUID;
-
+/**
+ * Accepts photo uploads (product images, profile pictures, seller logos).
+ * Storage backend is pluggable via {@link StorageService}:
+ * local disk by default, or an S3-compatible bucket when storage.s3.enabled=true.
+ */
 @RestController
 @RequestMapping("/api/upload")
 public class FileUploadController {
 
-    @Value("${file.upload-dir:uploads/}")
-    private String uploadDir;
+    private final StorageService storageService;
+
+    public FileUploadController(StorageService storageService) {
+        this.storageService = storageService;
+    }
 
     @PostMapping
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
@@ -25,22 +27,10 @@ public class FileUploadController {
         }
 
         try {
-            String originalFilename = file.getOriginalFilename();
-            String extension = "";
-            if (originalFilename != null && originalFilename.contains(".")) {
-                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-            }
-            String filename = UUID.randomUUID() + extension;
-
-            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-            Files.createDirectories(uploadPath);
-
-            Path filePath = uploadPath.resolve(filename);
-            file.transferTo(filePath.toFile());
-
-            String url = "/uploads/" + filename;
-            return ResponseEntity.ok(url);
-        } catch (IOException e) {
+            return ResponseEntity.ok(storageService.store(file));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
             return ResponseEntity.internalServerError().body("Upload failed: " + e.getMessage());
         }
     }

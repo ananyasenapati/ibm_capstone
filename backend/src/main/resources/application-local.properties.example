@@ -2,15 +2,32 @@
 # TEMPLATE - copy this file to "application-local.properties"
 # and fill in your own private values. The real file is
 # gitignored so your secrets never reach the repository.
-# Every value can also be supplied as an environment variable
-# (DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET, ...).
+# Every value can also be supplied as an environment variable.
 # ============================================================
 
-spring.datasource.url=jdbc:postgresql://localhost:5432/ebookstore
-spring.datasource.username=postgres
-spring.datasource.password=change-me
+# --- Option A: local PostgreSQL ---
+# spring.datasource.url=jdbc:postgresql://localhost:5432/ebookstore
+# spring.datasource.username=postgres
+# spring.datasource.password=change-me
 
+# --- Option B: Neon PostgreSQL (cloud) - remove the leading "#" ---
+# Tip: convert Neon's connection string "postgresql://user:pass@host/db?..."
+# to the JDBC form below (prefix jdbc:, keep sslmode=require&channel_binding=require).
+# spring.datasource.url=jdbc:postgresql://<ep-xxx-pooler>.aws.neon.tech/<dbname>?sslmode=require&channel_binding=require
+# spring.datasource.username=<neon user>
+# spring.datasource.password=<neon password>
+
+# --- JWT secret ---
 # Generate one with:
 #   PowerShell: [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('<any 32+ char string>'))
 #   Bash:       echo -n '<any 32+ char string>' | base64
 jwt.secret=replace-with-your-own-base64-key-min-32-bytes
+
+# --- S3-compatible photo storage (Neon Storage / AWS S3 / R2 / MinIO) ---
+# Leave storage.s3.enabled=false to store photos on local disk instead.
+storage.s3.enabled=false
+# storage.s3.endpoint=https://<your-endpoint-host>
+# storage.s3.region=us-east-2
+# storage.s3.bucket=<bucket-name>            # optional: auto-discovered if blank
+# storage.s3.access-key=<AWS_ACCESS_KEY_ID>
+# storage.s3.secret-key=<AWS_SECRET_ACCESS_KEY>
