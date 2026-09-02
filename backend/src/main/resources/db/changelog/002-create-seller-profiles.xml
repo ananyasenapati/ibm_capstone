@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="002-create-seller-profiles" author="capstone">
+        <createTable tableName="seller_profiles">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="business_name" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="business_address" type="TEXT"/>
+            <column name="gst_number" type="VARCHAR(50)"/>
+            <column name="description" type="TEXT"/>
+            <column name="logo_url" type="VARCHAR(500)"/>
+            <column name="approval_status" type="VARCHAR(20)" defaultValue="PENDING">
+                <constraints nullable="false"/>
+            </column>
+            <column name="approved_by" type="BIGINT"/>
+            <column name="approved_at" type="TIMESTAMP"/>
+            <column name="rejected_at" type="TIMESTAMP"/>
+            <column name="created_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="updated_at" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <addForeignKeyConstraint baseTableName="seller_profiles" baseColumnNames="user_id"
+            constraintName="fk_seller_user" referencedTableName="users" referencedColumnNames="id"/>
+        <addForeignKeyConstraint baseTableName="seller_profiles" baseColumnNames="approved_by"
+            constraintName="fk_seller_approved_by" referencedTableName="users" referencedColumnNames="id"/>
+        <createIndex tableName="seller_profiles" indexName="idx_seller_user_id">
+            <column name="user_id"/>
+        </createIndex>
+        <createIndex tableName="seller_profiles" indexName="idx_seller_status">
+            <column name="approval_status"/>
+        </createIndex>
+    </changeSet>
+</databaseChangeLog>

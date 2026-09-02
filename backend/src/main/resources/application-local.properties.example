@@ -1,0 +1,16 @@
+# ============================================================
+# TEMPLATE - copy this file to "application-local.properties"
+# and fill in your own private values. The real file is
+# gitignored so your secrets never reach the repository.
+# Every value can also be supplied as an environment variable
+# (DB_URL, DB_USERNAME, DB_PASSWORD, JWT_SECRET, ...).
+# ============================================================
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/ebookstore
+spring.datasource.username=postgres
+spring.datasource.password=change-me
+
+# Generate one with:
+#   PowerShell: [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('<any 32+ char string>'))
+#   Bash:       echo -n '<any 32+ char string>' | base64
+jwt.secret=replace-with-your-own-base64-key-min-32-bytes

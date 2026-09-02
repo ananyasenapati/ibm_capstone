@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <include file="db/changelog/001-create-users.xml"/>
+    <include file="db/changelog/002-create-seller-profiles.xml"/>
+    <include file="db/changelog/003-create-categories.xml"/>
+    <include file="db/changelog/004-create-products.xml"/>
+    <include file="db/changelog/005-create-addresses.xml"/>
+    <include file="db/changelog/006-create-orders.xml"/>
+    <include file="db/changelog/007-create-order-items.xml"/>
+    <include file="db/changelog/008-create-payments.xml"/>
+    <include file="db/changelog/009-create-ratings.xml"/>
+    <include file="db/changelog/010-create-gift-points.xml"/>
+    <include file="db/changelog/011-create-audit-log.xml"/>
+    <include file="db/changelog/012-seed-admin-user.xml"/>
+    <include file="db/changelog/013-fix-admin-password.xml"/>
+    <include file="db/changelog/014-add-profile-image.xml"/>
+</databaseChangeLog>
