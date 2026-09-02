@@ -10,7 +10,7 @@ const api = axios.create({
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
-    config.headers.Authorization = Bearer ;
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
@@ -26,13 +26,13 @@ api.interceptors.response.use(
       try {
         const user = JSON.parse(localStorage.getItem('user') || 'null');
         if (user?.refreshToken) {
-          const { data } = await axios.post(${API_BASE_URL}/auth/refresh, {
+          const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {
             refreshToken: user.refreshToken
           });
           const updatedUser = { ...user, ...data };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           localStorage.setItem('token', data.token);
-          originalRequest.headers.Authorization = Bearer ;
+          originalRequest.headers.Authorization = `Bearer ${data.token}`;
           return api(originalRequest);
         }
       } catch {}
