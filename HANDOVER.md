@@ -1,6 +1,44 @@
 # 📘 eBookStore — Complete Implementation Guide (Project Handover)
 
-> **Confidential — for the project purchaser only.** This document describes every module, every REST API endpoint, the database schema, business rules, and operational knowledge required to run, maintain, and extend the platform.
+> **Confidential — for the project purchaser only.** This document describes every module, every REST API endpoint, the database schema, business rules, deployment architecture, and operational knowledge required to run, maintain, and extend the platform.
+
+---
+
+## 🚀 Deployment Map (live services)
+
+| Service | Platform | URL / Location | Status |
+|---|---|---|---|
+| **Backend API** | Render (Docker) | `https://ibm-capstone.onrender.com` | ✅ Live |
+| **Frontend SPA** | Vercel | `https://ibm-capstone.vercel.app` *(update with your actual URL)* | ⬜ Deploy separately |
+| **Database** | Neon (PostgreSQL 15) | `ep-cool-king-a5z3tv34-pooler.us-east-2.aws.neon.tech` | ✅ Provisioned |
+| **Photo Storage** | Neon Storage (S3-compatible) | `br-square-flower-a52a0ppq.storage.c-1.us-east-2.aws.neon.tech` | ✅ Configured |
+| **Source Code** | GitHub | `https://github.com/ananyasenapati/ibm_capstone` | ✅ Latest commit `95dcf41` |
+
+### How the pieces connect
+```
+User's browser
+    │
+    ▼
+Vercel CDN (React SPA, frontend/)
+    │  vercel.json rewrites:
+    │    /api/*    → https://ibm-capstone.onrender.com/api/*
+    │    /uploads/* → https://ibm-capstone.onrender.com/uploads/*
+    │
+    ▼
+Render Docker Container (Spring Boot, backend/)
+    │  Dockerfile builds → multi-stage Maven → JRE Alpine
+    │  ENTRYPOINT: java -Dserver.port=${PORT:-8080} -jar app.jar
+    │
+    ├──► Neon PostgreSQL (via DB_URL JDBC)
+    └──► Neon Storage S3 (via AWS_* env vars)
+```
+
+### Auto-deploy behavior
+- **Render**: watches `main` branch → every `git push` triggers a fresh Docker build & deploy (~3–5 min)
+- **Vercel**: watches `main` branch → every `git push` triggers `npm run build` & deploy (~1 min)
+- **Both** deploy only when their **Root Directory** changes:
+  - Render: only changes under `backend/`
+  - Vercel: only changes under `frontend/`
 
 ---
 
@@ -356,7 +394,147 @@ server {
 
 ---
 
-## 11. Known Limitations & Recommended Next Steps
+## 11. Operational Procedures (Day-to-Day)
+
+### How to change the backend URL on Vercel
+
+**File:** `frontend/vercel.json`
+**What to change:** The `destination` URLs in the two rewrite rules
+**Effect:** Frontend proxies API + image requests to the new backend
+
+```json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://NEW_BACKEND_URL.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://NEW_BACKEND_URL.com/uploads/:path*" }
+  ]
+}
+```
+
+1. Edit `frontend/vercel.json` locally
+2. `git push origin main` → Vercel auto-deploys (~1 min)
+3. Verify: `curl -I https://your-frontend.vercel.com/api/products` → should return 200
+
+### How to change environment variables (Render backend)
+
+1. Go to [Render Dashboard](https://dashboard.render.com) → your `ibm-capstone` service
+2. Click **Environment** in the left sidebar
+3. Edit or add key-value pairs
+4. Click **Save** → Render **does NOT auto-redeploy on env change**
+5. To apply: click **Manual Deploy** → **Deploy latest commit**
+
+### How to add a new API endpoint
+
+1. Create a method in the appropriate `backend/src/main/java/com/capstone/controller/*.java`
+2. Ensure the URL pattern matches the security rules in `SecurityConfig`
+3. Test locally: `cd backend && mvn spring-boot:run`
+4. `git push origin main` → Render builds & deploys (~3–5 min)
+
+### How to change the database schema
+
+1. Add new changelog: `backend/src/main/resources/db/changelog/NNN-name.xml`
+2. Register it in `db.changelog-master.xml`
+3. Push → Render auto-applies the changelog on startup
+
+### How to modify CORS / allowed origins
+
+**Files:** `backend/src/main/java/com/capstone/config/SecurityConfig.java` and `WebConfig.java`
+Both have `http://localhost:5173` hardcoded. Replace with your Vercel domain for production.
+
+### How to rotate secrets
+
+1. New JWT key: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+2. Render Dashboard → Environment → update value → Manual Deploy
+
+### How to access the database directly
+
+Neon Console at [console.neon.tech](https://console.neon.tech) → Query tab, or any Postgres client with the connection details in §12.
+
+### How to view logs
+
+- **Render:** Dashboard → service → **Logs** tab
+- **Vercel:** Dashboard → project → Deployments → click → Runtime Logs
+
+### How to roll back
+
+**Render:** Dashboard → service → **Deploys** tab → click previous deploy → **Rollback**
+**Git:** `git revert <commit-hash>` → `git push origin main`
+
+### How to take the site down / pause
+
+**Render:** Dashboard → service → **Settings** → scroll down → **Pause Service** (stops all traffic + billing)
+
+### Render pricing & upgrade path
+
+| Plan | CPU | RAM | Cost |
+|---|---|---|---|
+| Free | 0.1 | 512 MB | $0 (spins down after 15 min idle) |
+| 0.5c-512mb | 0.5 | 512 MB | $7/mo |
+| 1c-2g | 1 | 2 GB | $25/mo (recommended) |
+| 2c-4g | 2 | 4 GB | $85/mo |
+
+---
+
+## 12. Environment Variables — Complete Reference
+
+### Backend (Render — set in Dashboard)
+
+| Variable | Required | Current Value | Purpose |
+|---|---|---|---|
+| `DB_URL` | yes | `jdbc:postgresql://ep-cool-king-a5z3tv34-pooler.us-east-2.aws.neon.tech/ebookstore?sslmode=require&channel_binding=require` | Neon PostgreSQL |
+| `DB_USERNAME` | yes | `neondb_owner` | Database username |
+| `DB_PASSWORD` | yes | `npg_pBqifXAx6P2C` | Database password |
+| `JWT_SECRET` | yes | `LKglo+fU+Q5LtvX45MCQUVUlQhIqpguygHpWHEneCWU=` | HS256 signing key (Base64) |
+| `S3_ENABLED` | yes | `true` | `true` = Neon Storage, `false` = local disk |
+| `AWS_ENDPOINT_URL_S3` | if S3 | `https://br-square-flower-a52a0ppq.storage.c-1.us-east-2.aws.neon.tech` | S3 endpoint |
+| `AWS_ACCESS_KEY_ID` | if S3 | `nak_live_adfe0d0f5b59428ca41201eda38cf22a` | S3 access key |
+| `AWS_SECRET_ACCESS_KEY` | if S3 | `nsk_live_85f9863e9816348c1f1b237ed3e74afd84b4c31be8103571b99e6ee324563b94` | S3 secret key |
+| `S3_BUCKET` | if S3 | `photos` | Image bucket |
+| `AWS_REGION` | if S3 | `us-east-2` | S3 region |
+| `PORT` | auto | *(injected by Render)* | Do NOT set manually |
+
+### Frontend (Vercel — set in Dashboard or `frontend/.env`)
+
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `VITE_API_BASE_URL` | no | `/api` | Absolute URL for local dev only |
+
+---
+
+## 13. Credential Inventory
+
+| Secret | Where stored | How to change |
+|---|---|---|
+| Neon DB password | Neon console + Render env var | Change in Neon → update `DB_PASSWORD` → redeploy |
+| JWT signing key | Render env var only | Render Dashboard → update `JWT_SECRET` → redeploy |
+| S3 access keys | Render env var only | Render Dashboard → update keys → redeploy |
+| GitHub PAT | User's GitHub settings | github.com/settings/tokens |
+| Render account | User's email/password | render.com |
+| Vercel account | User's email/password | vercel.com |
+| Neon account | User's email/password | console.neon.tech |
+
+> ⚠️ Neon DB owner password and S3 secret key are stored ONLY in Render Dashboard env vars and the local `render.env` file (gitignored). Never committed to GitHub.
+
+---
+
+## 14. File Map — What to Edit When
+
+| I want to... | File(s) to edit | Then |
+|---|---|---|
+| Change an API endpoint URL | `backend/src/main/java/com/capstone/controller/*.java` | `git push` |
+| Add a database table/column | `backend/src/main/resources/db/changelog/NNN-name.xml` + register in `db.changelog-master.xml` | `git push` |
+| Change a business rule (pricing, gift points) | `backend/src/main/java/com/capstone/service/*.java` | `git push` |
+| Add a frontend page | `frontend/src/pages/MyPage.tsx` + route in `frontend/src/App.tsx` | `git push` |
+| Change frontend styling | `frontend/src/**/*.tsx` or `frontend/src/index.css` | `git push` |
+| Change backend env vars | Render Dashboard → Environment | Save → Manual Deploy |
+| Change frontend env vars | `frontend/.env` (local) or Vercel Dashboard | `git push` or redeploy |
+| Change Render service config | Render Dashboard → Settings | Save |
+| Change Vercel's backend URL | `frontend/vercel.json` | `git push` |
+| Change Vercel's root directory | Vercel Dashboard → Settings | Save |
+
+---
+
+## 15. Known Limitations & Recommended Next Steps
 
 1. **In-memory cart** — carts reset on backend restart and don't scale horizontally. *Next:* persist cart in a `cart_items` table or Redis.
 2. **Mock payment gateway** — payments always succeed. *Next:* integrate Razorpay/Stripe; flip order/payment statuses from the gateway webhook.

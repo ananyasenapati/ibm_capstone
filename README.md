@@ -136,51 +136,48 @@ An admin is seeded by migration `012/013`: **`admin@ebookstore.com`** (password 
 
 ---
 
-## 🚀 Deploy to Vercel (Frontend)
+## 🚀 Deployment (Live)
 
-The frontend is a static Vite build — deploy it on Vercel in minutes:
+The application is deployed as a **frontend + backend split**:
 
-1. **Import on Vercel** → connect your forked GitHub repo → set **Root Directory** to `frontend/`.
-2. **Install deps** & **Build** run automatically (`npm install && npm run build`).
-3. **Edit `frontend/vercel.json`** — replace `https://YOUR_BACKEND_URL.com` in both rewrite rules with your deployed backend's base URL:
-   ```json
-   { "source": "/api/(.*)", "destination": "https://api.yourapp.com/api/$1" }
-   ```
-4. **Set `VITE_API_BASE_URL` (optional)** — if you prefer the browser to call the backend directly (skip Vercel rewrites), set this to your backend's absolute URL in **Project Settings → Environment Variables**. This also requires the backend to allow CORS from your Vercel domain.
+| Service | Platform | URL | Status |
+|---|---|---|---|
+| **Backend API** | Render (Docker) | `https://ibm-capstone.onrender.com` | ✅ Live |
+| **Frontend SPA** | Vercel | *Deploy separately* | ⬜ — |
+| **Database** | Neon PostgreSQL 15 | Auto-provisioned by Liquibase | ✅ Connected |
+| **Photo Storage** | Neon Storage (S3) | Bucket `photos` | ✅ Configured |
 
-| Approach | When to use | Setup |
-|---|---|---|
-| **vercel.json rewrites** *(default)* | Recommended | Just edit `vercel.json`; API + `/uploads` proxy through Vercel — no CORS issues |
-| **VITE_API_BASE_URL** env var | You have your own domain & HTTPS backend | Set `VITE_API_BASE_URL=https://api.yourapp.com` in Vercel; must update backend CORS |
+**Auto-deploy:** every `git push origin main` triggers fresh deploys on both platforms. Render watches `backend/`, Vercel watches `frontend/`.
 
-> ℹ️ The frontend build contains **no secrets**. All environment variables are resolved at build time by Vercel (values with the `VITE_` prefix are inlined).
+### Quick start (local dev)
 
----
+```bash
+# Backend  —  http://localhost:8080
+cd backend && mvn spring-boot:run
 
-## 🐳 Deploy Backend on Render
+# Frontend  —  http://localhost:5173 (proxies /api → backend)
+cd frontend && npm install && npm run dev
+```
 
-The Spring Boot backend runs in a Docker container on Render:
+### Frontend on Vercel
 
-1. **New Web Service** → import repo → set **Root Directory** to `backend/`.
-2. **Environment**: choose **Docker** (Render auto-detects `backend/Dockerfile`).
-3. In the Render Dashboard, add these **Environment Variables** (all secrets):
-   | Key | Example value |
-   |---|---|
-   | `DB_URL` | `jdbc:postgresql://ep-cool-king-a5z3tv34-pooler.us-east-2.aws.neon.tech/ebookstore?sslmode=require&channel_binding=require` |
-   | `DB_USERNAME` | `neondb_owner` |
-   | `DB_PASSWORD` | `npg_…` (Neon password) |
-   | `JWT_SECRET` | Base64 key ≥ 32 bytes |
-   | `S3_ENABLED` | `true` |
-   | `AWS_ENDPOINT_URL_S3` | `https://br-square-flower-a52a0ppq.storage.c-1.us-east-2.aws.neon.tech` |
-   | `AWS_ACCESS_KEY_ID` | `nak_live_…` |
-   | `AWS_SECRET_ACCESS_KEY` | `nsk_live_…` |
-   | `S3_BUCKET` | `photos` |
-   | `AWS_REGION` | `us-east-2` |
-4. Click **Deploy**. Render builds the Docker image and runs it (free tier = 512 MB RAM, 1 CPU).
-5. **Get the service URL** (e.g. `https://ebookstore-api.onrender.com`).
-6. **Update `frontend/vercel.json`** — replace `YOUR_BACKEND_URL.com` with this URL, then redeploy the Vercel frontend.
+1. Go to [vercel.com/new](https://vercel.com/new) → import `ananyasenapati/ibm_capstone`
+2. Set **Root Directory** to `frontend/`
+3. Edit `frontend/vercel.json` — replace `YOUR_BACKEND_URL.com` with `https://ibm-capstone.onrender.com` in both rewrite rules
+4. Click **Deploy**
 
-> 💡 `render.yaml` at the repo root defines the service as infrastructure-as-code. You can also use it to auto-provision the service — just make sure your secrets are set in the Render Dashboard.
+> The `vercel.json` rewrites route `/api/*` and `/uploads/*` to the backend — no CORS config needed, no secrets in the frontend bundle.
+
+### Backend on Render (Docker)
+
+1. Create a **Web Service** on [Render](https://dashboard.render.com/new) → import `ananyasenapati/ibm_capstone`
+2. **Root Directory** → `backend/` · **Runtime** → Docker
+3. In **Environment**, click **Add from .env** and upload `render.env` (in repo root)
+4. Click **Deploy** (~3–5 min for Maven build)
+5. Get the URL: `https://ibm-capstone.onrender.com`
+6. Update `frontend/vercel.json` with this URL → redeploy Vercel
+
+> `render.yaml` at repo root defines the service as infrastructure-as-code.
 
 ---
 
