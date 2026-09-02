@@ -8,14 +8,8 @@
     }
   ],
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://YOUR_BACKEND_URL.com/api/$1"
-    },
-    {
-      "source": "/uploads/(.*)",
-      "destination": "https://YOUR_BACKEND_URL.com/uploads/$1"
-    }
+    { "source": "/api/:path*", "destination": "https://ibm-capstone.onrender.com/api/:path*" },
+    { "source": "/uploads/:path*", "destination": "https://ibm-capstone.onrender.com/uploads/:path*" }
   ],
   "headers": [
     {
