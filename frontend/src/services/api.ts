@@ -1,14 +1,16 @@
-import axios from 'axios';
+﻿import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' }
 });
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+    config.headers.Authorization = Bearer ;
   }
   return config;
 });
@@ -24,18 +26,16 @@ api.interceptors.response.use(
       try {
         const user = JSON.parse(localStorage.getItem('user') || 'null');
         if (user?.refreshToken) {
-          const { data } = await axios.post('/api/auth/refresh', {
+          const { data } = await axios.post(${API_BASE_URL}/auth/refresh, {
             refreshToken: user.refreshToken
           });
           const updatedUser = { ...user, ...data };
           localStorage.setItem('user', JSON.stringify(updatedUser));
           localStorage.setItem('token', data.token);
-          originalRequest.headers.Authorization = `Bearer ${data.token}`;
+          originalRequest.headers.Authorization = Bearer ;
           return api(originalRequest);
         }
-      } catch {
-        // Refresh failed, logout
-      }
+      } catch {}
 
       localStorage.removeItem('user');
       localStorage.removeItem('token');
@@ -57,7 +57,6 @@ export const getErrorMessage = (err: any, fallback = 'Something went wrong'): st
     return backendMessage;
   }
 
-  // Friendly messages for common HTTP status codes (backend bodies are often empty)
   const status = err?.response?.status;
   if (status === 401) return 'Your session has expired. Please sign in again.';
   if (status === 403)

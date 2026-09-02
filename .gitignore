@@ -5,6 +5,9 @@ backend/src/main/resources/application-local.properties
 .env
 .env.*
 *.env
+!.env.example
+!frontend/.env.example
+!frontend/vercel.json
 
 # ============================================================
 # Java / Maven build output

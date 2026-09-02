@@ -79,6 +79,8 @@ A full-stack **multi-vendor bookstore marketplace** with three roles — **Custo
 │       └── config/           # Security, CORS, static resource config
 │   └── src/main/resources/db/changelog/   # Liquibase migrations
 └── frontend/                 # React + TypeScript SPA
+        ├── .env.example          # Frontend env var template (VITE_API_BASE_URL)
+    ├── vercel.json           # Vercel rewrites: /api + /uploads → backend
     └── src/
         ├── pages/            # Landing, Catalogue, Cart, Checkout, admin/*, seller/*
         ├── components/       # Shared UI components
@@ -134,6 +136,27 @@ An admin is seeded by migration `012/013`: **`admin@ebookstore.com`** (password 
 
 ---
 
+## 🚀 Deploy to Vercel (Frontend)
+
+The frontend is a static Vite build — deploy it on Vercel in minutes:
+
+1. **Import on Vercel** → connect your forked GitHub repo → set **Root Directory** to `frontend/`.
+2. **Install deps** & **Build** run automatically (`npm install && npm run build`).
+3. **Edit `frontend/vercel.json`** — replace `https://YOUR_BACKEND_URL.com` in both rewrite rules with your deployed backend's base URL:
+   ```json
+   { "source": "/api/(.*)", "destination": "https://api.yourapp.com/api/$1" }
+   ```
+4. **Set `VITE_API_BASE_URL` (optional)** — if you prefer the browser to call the backend directly (skip Vercel rewrites), set this to your backend's absolute URL in **Project Settings → Environment Variables**. This also requires the backend to allow CORS from your Vercel domain.
+
+| Approach | When to use | Setup |
+|---|---|---|
+| **vercel.json rewrites** *(default)* | Recommended | Just edit `vercel.json`; API + `/uploads` proxy through Vercel — no CORS issues |
+| **VITE_API_BASE_URL** env var | You have your own domain & HTTPS backend | Set `VITE_API_BASE_URL=https://api.yourapp.com` in Vercel; must update backend CORS |
+
+> ℹ️ The frontend build contains **no secrets**. All environment variables are resolved at build time by Vercel (values with the `VITE_` prefix are inlined).
+
+---
+
 ## ⚙️ Configuration
 
 All values support environment-variable overrides — no secrets are stored in the repository.
@@ -153,6 +176,7 @@ All values support environment-variable overrides — no secrets are stored in t
 | `FILE_UPLOAD_DIR` | Local-disk upload directory (local mode) | `uploads/` |
 | `SERVER_PORT` | Backend port | `8080` |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile | `local` |
+| `VITE_API_BASE_URL` | Frontend API base URL (set to absolute URL to bypass Vercel rewrites) | `/api` |
 
 ---
 
@@ -182,6 +206,7 @@ Base URL: `/api` · Auth: `Authorization: Bearer <token>`
 - CORS restricted to the frontend origin; CSRF disabled (stateless API)
 - Photos: with object storage enabled, images are stored in a private S3-compatible bucket and streamed through the API's `/uploads/**` endpoint (no public bucket exposure)
 - No secrets in version control — private values live in a gitignored local profile or environment variables
+- On Vercel, API and image requests are reverse-proxied via `vercel.json` rewrites so no secrets are needed in the frontend bundle; CORS remains server-only
 
 ## 📄 License
 All rights reserved. This source code is licensed to the purchaser only and may not be redistributed or resold without permission.

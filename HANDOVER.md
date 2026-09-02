@@ -287,6 +287,7 @@ Config: `storage.s3.endpoint`, `storage.s3.region`, `storage.s3.bucket`, `storag
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | object-storage credentials |
 | `FILE_UPLOAD_DIR`, `SERVER_PORT` | uploads path (local mode), HTTP port |
 | `SPRING_PROFILES_ACTIVE` | profile (default `local`) |
+| `VITE_API_BASE_URL` | Frontend API base URL; set to absolute URL to connect directly to backend (bypasses Vercel rewrites). Leave unset in production and use `vercel.json` rewrites instead. | `/api` |
 
 **Rotate the JWT secret** (recommended immediately after handover): generate a Base64 key (`[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes('<any 32+ char string>'))` in PowerShell), set `JWT_SECRET` (or edit the local properties file), restart. Rotating invalidates all existing tokens (users simply log in again).
 
@@ -302,21 +303,45 @@ UPDATE users SET password_hash = '<bcrypt-hash>' WHERE email = 'admin@ebookstore
 
 ## 10. Build, Run & Deploy
 
-**Backend**
-```bash
-cd backend
-mvn clean package                 # produces target/ebookstore-1.0.0.jar
-java -jar target/ebookstore-1.0.0.jar   # set env vars, or rely on local profile
+**Frontend (Vercel)** — the recommended production path:
+
+1. Push your fork to GitHub.
+2. On [Vercel](https://vercel.com/new), import the repo and set **Root Directory** → `frontend/`.
+3. Edit `frontend/vercel.json` — replace `https://YOUR_BACKEND_URL.com` in both rewrite rules with your deployed backend's base URL (e.g. `https://api.ebookstore.com`).
+4. Click **Deploy**. Vercel runs `npm install && npm run build` automatically; `dist/` is served as static assets.
+5. *(Optional)* Set env var `VITE_API_BASE_URL=https://api.ebookstore.com` in **Project Settings → Environment Variables** — use this only if you bypass the rewrites and connect directly (requires backend CORS update).
+
+> With Vercel rewrites, `/api/*` and `/uploads/*` are proxied server-side — no CORS configuration needed on the backend, and no secrets are exposed to the browser.
+
+**Backend** — deploy the Spring Boot JAR on any host with Java 17 + network access to PostgreSQL:
+
+1. ```bash
+   cd backend
+   mvn clean package          # produces target/ebookstore-1.0.0.jar
+   ```
+2. Set environment variables (or supply `application-local.properties`):
+   `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `S3_ENABLED`, `AWS_*` / `S3_BUCKET`
+3. ```bash
+   java -jar target/ebookstore-1.0.0.jar
+   ```
+4. **Production hardening**: update CORS origins in `SecurityConfig` + `WebConfig` to your real Vercel domain; set `SPRING_PROFILES_ACTIVE` to a non-`local` profile; front with HTTPS (use a reverse proxy like Nginx — see below).
+
+**Nginx reverse-proxy** (optional, if you host the frontend on the same host as the backend):
+```nginx
+server {
+  listen 80;
+  server_name yourdomain.com;
+
+  location / {
+    root /path/to/frontend/dist;
+    try_files $uri $uri/ /index.html;
+  }
+
+  location /api/ { proxy_pass http://localhost:8080; }  # backend
+  location /uploads/ { proxy_pass http://localhost:8080; }  # image serving
+}
 ```
-**Frontend**
-```bash
-cd frontend
-npm install
-npm run dev        # development (port 5173)
-npm run build      # production bundle in dist/
-npm run preview    # serve the production build
-```
-**Deployment checklist:** provision PostgreSQL (local or Neon cloud) → set `DB_*`, `JWT_SECRET` env vars → enable object storage with `S3_ENABLED=true` + `AWS_*` / `S3_BUCKET` vars (or keep local disk) → set `SPRING_PROFILES_ACTIVE` to something other than `local` → update CORS origins → front the API with HTTPS → point the built frontend's `/api` + `/uploads` at the API host (reverse proxy such as Nginx keeps the same paths; in S3 mode `/uploads` is served by the API itself).
+**Deployment checklist:** provision PostgreSQL (local or Neon cloud) → set `DB_*`, `JWT_SECRET` env vars → enable object storage with `S3_ENABLED=true` + `AWS_*` / `S3_BUCKET` vars (or keep local disk) → set `SPRING_PROFILES_ACTIVE` to something other than `local` → front the API with HTTPS → update CORS origins to your real frontend domain → deploy frontend on Vercel (edit `vercel.json` with backend URL). See §10 above for step-by-step Vercel and backend deployment instructions.
 
 ---
 
