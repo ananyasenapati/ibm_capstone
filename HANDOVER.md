@@ -326,6 +326,17 @@ UPDATE users SET password_hash = '<bcrypt-hash>' WHERE email = 'admin@ebookstore
    ```
 4. **Production hardening**: update CORS origins in `SecurityConfig` + `WebConfig` to your real Vercel domain; set `SPRING_PROFILES_ACTIVE` to a non-`local` profile; front with HTTPS (use a reverse proxy like Nginx — see below).
 
+**Render (Docker)** — deploy the backend as a managed Docker web service:
+
+1. Create a **Web Service** on [Render](https://dashboard.render.com/new) → import your repo → **Root Directory** = `backend/`.
+2. Select **Docker** as the runtime (Render auto-detects `backend/Dockerfile`).
+3. In the Dashboard → **Environment → Add Environment Variable**, add (all are secret):
+   `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET`, `S3_ENABLED=true`, `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET=photos`, `AWS_REGION=us-east-2`.
+4. Alternatively, use the repo's `render.yaml` (infra-as-code) — it pre-declares the non-secret env vars; you only need to fill in the secret ones in the Dashboard.
+5. Click **Deploy**. Render builds the multi-stage Docker image (~250 MB) and runs it on the free tier (upgrade for production).
+6. Once deployed, you get a URL like `https://ebookstore-api.onrender.com`.
+7. **Update `frontend/vercel.json`** — replace `YOUR_BACKEND_URL.com` with this URL, then click **Redeploy** on Vercel.
+
 **Nginx reverse-proxy** (optional, if you host the frontend on the same host as the backend):
 ```nginx
 server {

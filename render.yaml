@@ -1,0 +1,38 @@
+# Render.com infrastructure-as-code
+# Frontend: deploy separately on Vercel (see frontend/vercel.json)
+# Backend : deploy as a Docker web service (see backend/Dockerfile)
+
+services:
+  - type: web
+    name: ebookstore-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: backend/Dockerfile
+    plan: free              # free tier = 750 h/mo; upgrade for production
+    autoDeploy: true        # auto-deploy on every push to main
+    healthCheckPath: /api/categories
+    envVars:
+      # --- Non-secret configuration (safe to commit) ---
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: S3_ENABLED
+        value: "true"
+      - key: S3_BUCKET
+        value: photos
+      - key: AWS_REGION
+        value: us-east-2
+      - key: SERVER_PORT
+        value: "${PORT}"   # Render assigns $PORT at runtime
+
+      # --- Secret configuration (set these in the Render Dashboard ---
+      # Render → Service → Settings → Environment → Add Environment Variable
+      #
+      # DB_URL          = Neon PostgreSQL URL
+      # DB_USERNAME     = neondb_owner
+      # DB_PASSWORD     = npg_pBqifXAx6P2C
+      # JWT_SECRET      = base64-encoded 32+ byte key (see README)
+      # AWS_ENDPOINT_URL_S3 = S3 endpoint URL
+      # AWS_ACCESS_KEY_ID   = S3 access key
+      # AWS_SECRET_ACCESS_KEY = S3 secret key
+      #
+      # Never commit real secret values to this file.

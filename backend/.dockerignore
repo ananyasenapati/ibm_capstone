@@ -1,0 +1,22 @@
+# Build artifacts
+target/
+*.jar
+
+# Git / IDE
+.git
+.gitignore
+.idea/
+.vscode/
+*.iml
+.settings/
+
+# Logs
+*.log
+logs/
+
+# Private config (already gitignored but belt-and-suspenders)
+application-local.properties
+.env*
+
+# Tests
+src/test/

@@ -157,6 +157,33 @@ The frontend is a static Vite build — deploy it on Vercel in minutes:
 
 ---
 
+## 🐳 Deploy Backend on Render
+
+The Spring Boot backend runs in a Docker container on Render:
+
+1. **New Web Service** → import repo → set **Root Directory** to `backend/`.
+2. **Environment**: choose **Docker** (Render auto-detects `backend/Dockerfile`).
+3. In the Render Dashboard, add these **Environment Variables** (all secrets):
+   | Key | Example value |
+   |---|---|
+   | `DB_URL` | `jdbc:postgresql://ep-cool-king-a5z3tv34-pooler.us-east-2.aws.neon.tech/ebookstore?sslmode=require&channel_binding=require` |
+   | `DB_USERNAME` | `neondb_owner` |
+   | `DB_PASSWORD` | `npg_…` (Neon password) |
+   | `JWT_SECRET` | Base64 key ≥ 32 bytes |
+   | `S3_ENABLED` | `true` |
+   | `AWS_ENDPOINT_URL_S3` | `https://br-square-flower-a52a0ppq.storage.c-1.us-east-2.aws.neon.tech` |
+   | `AWS_ACCESS_KEY_ID` | `nak_live_…` |
+   | `AWS_SECRET_ACCESS_KEY` | `nsk_live_…` |
+   | `S3_BUCKET` | `photos` |
+   | `AWS_REGION` | `us-east-2` |
+4. Click **Deploy**. Render builds the Docker image and runs it (free tier = 512 MB RAM, 1 CPU).
+5. **Get the service URL** (e.g. `https://ebookstore-api.onrender.com`).
+6. **Update `frontend/vercel.json`** — replace `YOUR_BACKEND_URL.com` with this URL, then redeploy the Vercel frontend.
+
+> 💡 `render.yaml` at the repo root defines the service as infrastructure-as-code. You can also use it to auto-provision the service — just make sure your secrets are set in the Render Dashboard.
+
+---
+
 ## ⚙️ Configuration
 
 All values support environment-variable overrides — no secrets are stored in the repository.
